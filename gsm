@@ -1,0 +1,80 @@
+import serial
+import time
+
+def send_at_command(ser, command, delay=1):
+    """
+    Send an AT command to the SIM800L and print its response.
+    
+    Args:
+        ser (serial.Serial): An open serial port connection.
+        command (str): The AT command to send.
+        delay (float): Delay in seconds after sending the command.
+    """
+    full_command = command + "\r\n"
+    print(f"Sending: {command}")
+    ser.write(full_command.encode())
+    time.sleep(delay)
+    while ser.inWaiting():
+        response = ser.read(ser.inWaiting()).decode('utf-8', errors='ignore')
+        print("Response:", response.strip())
+
+def send_sms(ser, phone_number, message):
+    """
+    Send an SMS using the SIM800L AT command set.
+    
+    Args:
+        ser (serial.Serial): An open serial port connection.
+        phone_number (str): Recipient phone number (include country code if needed).
+        message (str): The text message to send.
+    """
+    # Test communication with the module
+    send_at_command(ser, "AT", delay=1)
+    
+    
+    # Set SMS mode to text
+    send_at_command(ser, "AT+CMGF=1", delay=1)
+    
+    # Start SMS command by specifying the recipient's number
+    send_at_command(ser, f'AT+CMGS="{phone_number}"', delay=2)
+    
+    # Send the message text
+    print("Sending SMS text...")
+    ser.write(message.encode() + b"\r\n")
+    
+    # Send Ctrl+Z (ASCII 26) to signal the end of the message
+    ser.write(bytes([26]))
+    
+    # Wait for the SIM800L to process the command and send the SMS
+    time.sleep(3)
+    while ser.inWaiting():
+        response = ser.read(ser.inWaiting()).decode('utf-8', errors='ignore')
+        print("Response:", response.strip())
+
+def main():
+    # Use /dev/serial0 for the Pi's primary UART interface.
+    serial_port = "/dev/ttyS0"  # Adjust if necessary (e.g., /dev/ttyAMA0 or /dev/ttyS0)
+    baud_rate = 9600             # Common baud rate for SIM800L modules
+    try:
+        ser = serial.Serial(serial_port, baud_rate, timeout=1)
+        print(f"Opened serial port {serial_port} at {baud_rate} baud.")
+    except Exception as e:
+        print(f"Error opening serial port {serial_port}: {e}")
+        return
+
+    # Allow time for the SIM800L to initialize after power-up.
+    time.sleep(2)
+
+    # Replace with the recipient's phone number (with country code if needed)
+    phone_number = "+995557598200"
+    # Replace with your SMS text message
+    message = "Hello, this is a test SMS sent from the SIM800L via Raspberry Pi UART!"
+
+    # Send the SMS message
+    send_sms(ser, phone_number, message)
+    
+    # Close the serial port
+    ser.close()
+    print("Serial port closed.")
+
+if __name__ == "__main__":
+    main()
